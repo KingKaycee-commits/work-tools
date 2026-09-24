@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Glossary</title>
+<style>
+:root{--bg:#f7f7f5;--panel:#fff;--border:#e4e2dd;--text:#1c1b19;--muted:#6b6a66;--accent:#1c3d5a;}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#16171a;--panel:#1f2024;--border:#33343a;--text:#e9e9ea;--muted:#9a9a9e;--accent:#7ea6cc;}}
+:root[data-theme="dark"]{--bg:#16171a;--panel:#1f2024;--border:#33343a;--text:#e9e9ea;--muted:#9a9a9e;--accent:#7ea6cc;}
+*{box-sizing:border-box;} html,body{height:100%;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);}
+.wrap{max-width:680px;margin:0 auto;padding:28px 18px 60px;}
+.nav{display:flex;gap:14px;margin-bottom:18px;flex-wrap:wrap;}
+.nav a{color:var(--muted);text-decoration:none;font-size:0.85rem;padding-bottom:3px;border-bottom:2px solid transparent;}
+.nav a.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
+h1{font-size:1.25rem;margin:0 0 4px;} .sub{color:var(--muted);font-size:0.9rem;margin:0 0 20px;}
+input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-size:0.95rem;margin-bottom:16px;}
+.term{padding:12px 0;border-bottom:1px solid var(--border);}
+.term h3{margin:0 0 4px;font-size:1rem;}
+.term p{margin:0;color:var(--muted);font-size:0.9rem;line-height:1.5;}
+.tag{display:inline-block;font-size:0.7rem;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:1px 8px;margin-bottom:4px;}
+.empty{color:var(--muted);font-style:italic;padding:20px 0;}
+</style></head><body>
+<div class="wrap">
+  <div class="nav">
+    <a href="index.html">Exec Speak</a><a href="strategy.html">Strategy Desk</a>
+    <a href="concept.html">Concept Explainer</a><a href="briefing.html">Briefing Note</a>
+    <a href="vendor.html">Vendor Prep</a><a href="glossary.html" class="active">Glossary</a><a href="inbox.html">Inbox Triage</a>
+  </div>
+  <h1>Glossary</h1>
+  <p class="sub">Instant lookup, no waiting on a response. Starter set below — for anything more thorough on a term, use Concept Explainer instead.</p>
+  <input type="text" id="search" placeholder="Search a term...">
+  <div id="list"></div>
+</div>
+<script>
+const TERMS = [
+  {t:"PPA (Power Purchase Agreement)", tag:"Power", d:"A contract where a power generator agrees to sell electricity to a buyer (often a distribution company or offtaker) at a set price over a fixed term. Sets the commercial backbone of most IPP deals."},
+  {t:"IPP (Independent Power Producer)", tag:"Power", d:"A private company that generates electricity for sale to utilities or large customers, outside a state-owned grid operator. Most gas-to-power deals in Nigeria involve an IPP somewhere in the chain."},
+  {t:"Gas-to-Power", tag:"Power", d:"The supply chain that moves natural gas from a producer to a power plant that burns it to generate electricity. Involves gas supply agreements, transport/pipeline arrangements, and the power sale itself."},
+  {t:"Take-or-Pay", tag:"Contracts", d:"A clause in gas supply agreements requiring the buyer to pay for a minimum volume of gas whether or not they actually use it. Protects the supplier's revenue; shifts risk to the buyer."},
+  {t:"Offtake / Offtaker", tag:"Contracts", d:"The party agreeing to buy the output (power, gas) from a project. The offtaker's creditworthiness is often what makes or breaks project financing."},
+  {t:"JV (Joint Venture)", tag:"Structure", d:"Two or more companies pooling resources into a shared entity to pursue a specific project, splitting costs, risk, and profit by agreed shares. Common structure for entering capital-heavy sectors like gas-to-power without going alone."},
+  {t:"Capacity Charge", tag:"Power", d:"Part of a power tariff that pays a generator for being available to produce power, regardless of how much is actually generated - distinct from the energy charge, which pays for actual output."},
+  {t:"NUPRC", tag:"Regulator", d:"Nigerian Upstream Petroleum Regulatory Commission - regulates upstream oil and gas operations (exploration, production) in Nigeria."},
+  {t:"NERC / NERC Order", tag:"Regulator", d:"Nigerian Electricity Regulatory Commission - sets tariffs, licenses, and rules for Nigeria's power sector, including distribution companies like Welbeck."},
+  {t:"DisCo (Distribution Company)", tag:"Power", d:"A company licensed to distribute electricity to end customers in a specific region of Nigeria - the category Welbeck Electricity Distribution operates in."},
+  {t:"Upstream / Midstream / Downstream", tag:"Oil & Gas", d:"Upstream = exploration and production of crude/gas. Midstream = transport, storage, processing (pipelines, gas plants). Downstream = refining and distribution to end users. Gas-to-power sits mostly in midstream/downstream."},
+  {t:"SIP Trunking", tag:"Telecom", d:"A way of delivering phone calls over the internet instead of traditional phone lines, using the SIP protocol. What connects an office PBX/IP phone system to the outside phone network."},
+  {t:"PBX (Private Branch Exchange)", tag:"Telecom", d:"The internal phone system that routes calls within an office and out to external lines. A Grandstream-based setup uses IP phones connected to a PBX, often cloud-hosted."},
+  {t:"Force Majeure", tag:"Contracts", d:"A contract clause excusing a party from performance when extraordinary events outside their control occur (natural disasters, government action). Often heavily negotiated in Nigerian energy contracts given infrastructure and regulatory volatility."},
+  {t:"Farm-in / Farm-out", tag:"Oil & Gas", d:"When a company (farm-in party) acquires a working interest in an oil/gas asset from another company (farm-out party), usually by funding some of the exploration/development cost in exchange for a share of the asset."}
+];
+const search=document.getElementById('search'), list=document.getElementById('list');
+function render(filter){
+  const f=(filter||'').toLowerCase();
+  const matches=TERMS.filter(x=>x.t.toLowerCase().includes(f)||x.d.toLowerCase().includes(f)||x.tag.toLowerCase().includes(f));
+  list.innerHTML = matches.length ? matches.map(x=>`<div class="term"><span class="tag">${x.tag}</span><h3>${x.t}</h3><p>${x.d}</p></div>`).join('') : '<div class="empty">No matching term. Try Concept Explainer for anything not in this list.</div>';
+}
+search.addEventListener('input',()=>render(search.value));
+render('');
+</script></body></html>

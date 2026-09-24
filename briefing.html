@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Briefing Note</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<style>
+:root{--bg:#f7f7f5;--panel:#fff;--border:#e4e2dd;--text:#1c1b19;--muted:#6b6a66;--accent:#1c3d5a;}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#16171a;--panel:#1f2024;--border:#33343a;--text:#e9e9ea;--muted:#9a9a9e;--accent:#7ea6cc;}}
+:root[data-theme="dark"]{--bg:#16171a;--panel:#1f2024;--border:#33343a;--text:#e9e9ea;--muted:#9a9a9e;--accent:#7ea6cc;}
+*{box-sizing:border-box;} html,body{height:100%;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);}
+.wrap{max-width:680px;margin:0 auto;padding:28px 18px 60px;}
+.nav{display:flex;gap:14px;margin-bottom:18px;flex-wrap:wrap;}
+.nav a{color:var(--muted);text-decoration:none;font-size:0.85rem;padding-bottom:3px;border-bottom:2px solid transparent;}
+.nav a.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
+h1{font-size:1.25rem;margin:0 0 4px;} .sub{color:var(--muted);font-size:0.9rem;margin:0 0 20px;}
+textarea{width:100%;min-height:130px;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-size:0.95rem;font-family:inherit;resize:vertical;}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0;}
+button{padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-size:0.9rem;cursor:pointer;}
+button.primary{background:var(--accent);color:#fff;border:none;font-weight:600;}
+button.primary:disabled{opacity:0.6;cursor:default;}
+.result{margin-top:18px;padding:16px 18px;border-radius:10px;border:1px solid var(--border);background:var(--panel);line-height:1.55;min-height:40px;font-size:0.95rem;}
+.result.empty{color:var(--muted);font-style:italic;}
+.result h1,.result h2,.result h3{font-size:1rem;margin:12px 0 6px;}
+.result p{margin:0 0 10px;} .result ul,.result ol{margin:0 0 10px;padding-left:20px;}
+.result table{border-collapse:collapse;width:100%;margin:10px 0;font-size:0.85rem;}
+.result th,.result td{border:1px solid var(--border);padding:6px 8px;text-align:left;}
+.histbox{margin-top:26px;}
+.histbox h3{font-size:0.9rem;color:var(--muted);margin:0 0 8px;display:flex;justify-content:space-between;align-items:center;}
+.histbox h3 button{font-size:0.75rem;padding:4px 8px;}
+.hist-item{padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;display:flex;flex-direction:column;gap:2px;}
+.hist-when{font-size:0.7rem;color:var(--muted);}
+.hist-q{font-size:0.85rem;}
+.hist-empty{color:var(--muted);font-style:italic;font-size:0.85rem;}
+</style></head><body>
+<div class="wrap">
+  <div class="nav">
+    <a href="index.html">Exec Speak</a><a href="strategy.html">Strategy Desk</a>
+    <a href="concept.html">Concept Explainer</a><a href="briefing.html" class="active">Briefing Note</a>
+    <a href="vendor.html">Vendor Prep</a><a href="glossary.html">Glossary</a><a href="inbox.html">Inbox Triage</a>
+  </div>
+  <h1>Briefing Note</h1>
+  <p class="sub">Give it a topic or rough notes. Comes back structured the way Uwem actually reads: situation, key facts, decision needed, recommendation.</p>
+  <textarea id="input" placeholder="e.g. Uwem needs background before Monday's call with the gas supplier about a proposed JV. Here's what I know so far..."></textarea>
+  <div class="row">
+    <button class="primary" id="go">Draft briefing note</button>
+    <button id="clear">Clear</button>
+  </div>
+  <div id="result" class="result empty">Your briefing note appears here.</div>
+  <div class="histbox">
+    <h3>History <button id="clearHist">Clear</button></h3>
+    <div id="histList"></div>
+  </div>
+</div>
+<script src="shared.js"></script>
+<script>
+const SYSTEM = COMPANY_CONTEXT + `\n\nYou write briefing notes for Kingsley to hand to Uwem Udoh, MD/CEO of WellManned. Turn whatever he gives you - a topic, rough notes, partial facts - into a tight briefing note readable in under 90 seconds, using this shape: SITUATION (2-3 sentences, why this matters now), KEY FACTS (bulleted, only what's known - never invent numbers or names), OPEN QUESTIONS (what's unclear that someone should confirm before the meeting), RECOMMENDATION (a clear suggested next step or stance). Do not pad it. Do not invent facts, figures, or names not given to you - if information is missing, list it under Open Questions instead of guessing.`;
+const PAGE='briefing';
+const input=document.getElementById('input'),go=document.getElementById('go'),result=document.getElementById('result'),histList=document.getElementById('histList');
+function refreshHistory(){ renderHistory(PAGE, histList, (item)=>{ input.value=item.q; result.classList.remove('empty'); renderMarkdown(result,item.a); }); }
+async function run(){
+  const text=input.value.trim(); if(!text) return;
+  go.disabled=true; result.classList.remove('empty'); result.textContent="Working...";
+  try{
+    const resp=await fetch(GROQ_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+GROQ_API_KEY},
+      body:JSON.stringify({model:GROQ_MODEL,messages:[{role:"system",content:SYSTEM},{role:"user",content:text}]})});
+    if(!resp.ok) throw new Error("request failed: "+resp.status);
+    const data=await resp.json();
+    const out=data?.choices?.[0]?.message?.content?.trim()||"No response came back. Try again.";
+    renderMarkdown(result,out);
+    saveHistory(PAGE,text,out); refreshHistory();
+  }catch(e){ result.textContent="Something went wrong ("+e.message+"). Try again."; }
+  go.disabled=false;
+}
+go.addEventListener('click',run);
+document.getElementById('clear').addEventListener('click',()=>{input.value='';result.textContent='Your briefing note appears here.';result.classList.add('empty');});
+document.getElementById('clearHist').addEventListener('click',()=>{clearHistory(PAGE);refreshHistory();});
+refreshHistory();
+</script></body></html>

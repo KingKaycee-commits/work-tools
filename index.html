@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Exec Speak</title>
+<style>
+:root{
+  --bg:#f7f7f5; --panel:#fff; --border:#e4e2dd; --text:#1c1b19; --muted:#6b6a66;
+  --accent:#1c3d5a;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#16171a; --panel:#1f2024; --border:#33343a; --text:#e9e9ea; --muted:#9a9a9e; --accent:#7ea6cc;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#16171a; --panel:#1f2024; --border:#33343a; --text:#e9e9ea; --muted:#9a9a9e; --accent:#7ea6cc;
+}
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+.nav{display:flex;gap:16px;margin-bottom:18px;}
+.nav a{color:var(--muted);text-decoration:none;font-size:0.9rem;padding-bottom:3px;border-bottom:2px solid transparent;}
+.nav a:first-child{color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
+.wrap{max-width:640px;margin:0 auto;padding:28px 18px 60px;}
+h1{font-size:1.25rem;margin:0 0 4px;}
+.sub{color:var(--muted);font-size:0.9rem;margin:0 0 20px;}
+textarea{
+  width:100%;min-height:120px;padding:12px;border-radius:10px;border:1px solid var(--border);
+  background:var(--panel);color:var(--text);font-size:0.95rem;font-family:inherit;resize:vertical;
+}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0;}
+select,button{
+  padding:9px 12px;border-radius:8px;border:1px solid var(--border);
+  background:var(--panel);color:var(--text);font-size:0.9rem;
+}
+button.primary{background:var(--accent);color:#fff;border:none;cursor:pointer;font-weight:600;}
+button.primary:disabled{opacity:0.6;cursor:default;}
+button.secondary{cursor:pointer;}
+.result{
+  margin-top:18px;padding:14px 16px;border-radius:10px;border:1px solid var(--border);
+  background:var(--panel);white-space:pre-wrap;line-height:1.5;min-height:40px;font-size:0.95rem;
+}
+.result.empty{color:var(--muted);font-style:italic;}
+.copybar{display:flex;justify-content:flex-end;margin-top:8px;}
+label{font-size:0.85rem;color:var(--muted);display:block;margin-bottom:4px;}
+.field{flex:1;min-width:140px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="nav"><a href="index.html">Exec Speak</a><a href="strategy.html">Strategy Desk</a><a href="concept.html">Concept Explainer</a><a href="briefing.html">Briefing Note</a><a href="vendor.html">Vendor Prep</a><a href="glossary.html">Glossary</a><a href="inbox.html">Inbox Triage</a></div>
+  <h1>Exec Speak</h1>
+  <p class="sub">Paste what you actually want to say. Get it back sounding like something you'd send to a Director.</p>
+
+  <label for="input">What's going on</label>
+  <textarea id="input" placeholder="e.g. the vendor hasn't replied in 3 days and I don't know if we should just call another supplier"></textarea>
+
+  <div class="row">
+    <div class="field">
+      <label for="tone">Register</label>
+      <select id="tone">
+        <option value="professional">Professional email/message</option>
+        <option value="executive">Executive brief (for your Director)</option>
+        <option value="diplomatic">Diplomatic pushback</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="length">Length</label>
+      <select id="length">
+        <option value="brief">Brief (1-2 sentences)</option>
+        <option value="short">Short paragraph</option>
+        <option value="full">Full message with structure</option>
+        <option value="obscene">Corporate overkill (satire)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="row">
+    <button class="primary" id="go">Rewrite</button>
+    <button class="secondary" id="clear">Clear</button>
+  </div>
+
+  <div id="result" class="result empty">Your rewrite appears here.</div>
+  <div class="copybar"><button class="secondary" id="copy" style="display:none;">Copy</button></div>
+</div>
+
+<script>
+const GROQ_API_KEY = "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";
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+
+const input = document.getElementById('input');
+const tone = document.getElementById('tone');
+const length = document.getElementById('length');
+const go = document.getElementById('go');
+const clearBtn = document.getElementById('clear');
+const result = document.getElementById('result');
+const copyBtn = document.getElementById('copy');
+
+const toneInstructions = {
+  professional: "Rewrite as a clear, polished professional message suitable for a colleague or external contact. Confident, plain, no fluff.",
+  executive: "Rewrite as an executive-level status update for a Director: lead with the bottom line, state the situation, state what you need from them or what you're doing about it. No jargon for jargon's sake, but sound like someone operating at a senior level.",
+  diplomatic: "Rewrite as a diplomatic but firm message that raises the issue without sounding like a complaint. Protect the relationship while being direct about the problem."
+};
+const lengthInstructions = {
+  brief: "Keep it to 1-2 sentences.",
+  short: "Keep it to one short paragraph (3-5 sentences).",
+  full: "Write a full message with a short opening line, the core point, and a clear next step or ask."
+};
+const buzzwordBank = "circle back, touch base, I'll revert, do you have the bandwidth, take this offline, let's double-click on that, let's land the plane, align, leverage, AI-native, agentic AI, synergy, low-hanging fruit, moving forward, plan of action, let's park that, boots on the ground, get our ducks in a row, reinvent the wheel, throw it at the wall and see what sticks, the 800-pound gorilla in the room, open the kimono, cross-pollinate, sing from the same song sheet, growth-hacking paradigm, synergistic leadership, holistic ecosystem, drive impact, unlock value, move the needle, deep dive, at the end of the day, paradigm shift, think outside the box, give 110%, make sure the juice is worth the squeeze";
+
+function buildPrompt(text){
+  if(length.value === 'obscene'){
+    return `Rewrite the message below as a maximally absurd wall of corporate jargon, for comic effect. Cram in as many overused workplace buzzwords and cliches as possible, drawing from terms like: ${buzzwordBank}. Write 3-4 paragraphs. Bury the original, simple meaning underneath layers of grandiose corporate-speak - the humor is that it takes forever to say something tiny. Do not add a preamble - output only the rewritten text.\n\nWhat they actually mean:\n${text}`;
+  }
+  return `You help a Nigerian Executive Assistant sound sharp and senior in written communication. ${toneInstructions[tone.value]} ${lengthInstructions[length.value]} Do not add a preamble like "here's your rewrite" - output only the rewritten text itself. Do not invent facts not present in the input.\n\nWhat they want to convey:\n${text}`;
+}
+
+async function rewrite(){
+  const text = input.value.trim();
+  if(!text){ return; }
+  go.disabled = true;
+  result.classList.remove('empty');
+  result.textContent = "Working...";
+  copyBtn.style.display = 'none';
+  try{
+    const prompt = buildPrompt(text);
+    const resp = await fetch(GROQ_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + GROQ_API_KEY
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-oss-20b",
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+    if(!resp.ok){
+      throw new Error("request failed: " + resp.status);
+    }
+    const data = await resp.json();
+    const out = data?.choices?.[0]?.message?.content?.trim() || "No response came back. Try again.";
+    result.textContent = out;
+    copyBtn.style.display = 'inline-block';
+  }catch(e){
+    result.textContent = "Something went wrong generating that (" + e.message + "). Try again.";
+  }
+  go.disabled = false;
+}
+
+go.addEventListener('click', rewrite);
+clearBtn.addEventListener('click', () => {
+  input.value = '';
+  result.textContent = 'Your rewrite appears here.';
+  result.classList.add('empty');
+  copyBtn.style.display = 'none';
+});
+copyBtn.addEventListener('click', () => {
+  navigator.clipboard.writeText(result.textContent).catch(()=>{});
+  copyBtn.textContent = 'Copied';
+  setTimeout(()=>{ copyBtn.textContent = 'Copy'; }, 1500);
+});
+</script>
+</body>
+</html>

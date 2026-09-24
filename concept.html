@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Concept Explainer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<style>
+:root{--bg:#f7f7f5;--panel:#fff;--border:#e4e2dd;--text:#1c1b19;--muted:#6b6a66;--accent:#1c3d5a;}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#16171a;--panel:#1f2024;--border:#33343a;--text:#e9e9ea;--muted:#9a9a9e;--accent:#7ea6cc;}}
+:root[data-theme="dark"]{--bg:#16171a;--panel:#1f2024;--border:#33343a;--text:#e9e9ea;--muted:#9a9a9e;--accent:#7ea6cc;}
+*{box-sizing:border-box;} html,body{height:100%;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);}
+.wrap{max-width:680px;margin:0 auto;padding:28px 18px 60px;}
+.nav{display:flex;gap:14px;margin-bottom:18px;flex-wrap:wrap;}
+.nav a{color:var(--muted);text-decoration:none;font-size:0.85rem;padding-bottom:3px;border-bottom:2px solid transparent;}
+.nav a.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
+h1{font-size:1.25rem;margin:0 0 4px;} .sub{color:var(--muted);font-size:0.9rem;margin:0 0 20px;}
+input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-size:0.95rem;}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0;}
+button{padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-size:0.9rem;cursor:pointer;}
+button.primary{background:var(--accent);color:#fff;border:none;font-weight:600;}
+button.primary:disabled{opacity:0.6;cursor:default;}
+.result{margin-top:18px;padding:16px 18px;border-radius:10px;border:1px solid var(--border);background:var(--panel);line-height:1.55;min-height:40px;font-size:0.95rem;}
+.result.empty{color:var(--muted);font-style:italic;}
+.result h1,.result h2,.result h3{font-size:1rem;margin:12px 0 6px;}
+.result p{margin:0 0 10px;}
+.result ul,.result ol{margin:0 0 10px;padding-left:20px;}
+.result table{border-collapse:collapse;width:100%;margin:10px 0;font-size:0.85rem;}
+.result th,.result td{border:1px solid var(--border);padding:6px 8px;text-align:left;}
+.diagram{margin-top:14px;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--panel);overflow-x:auto;}
+.histbox{margin-top:26px;}
+.histbox h3{font-size:0.9rem;color:var(--muted);margin:0 0 8px;display:flex;justify-content:space-between;align-items:center;}
+.histbox h3 button{font-size:0.75rem;padding:4px 8px;}
+.hist-item{padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;display:flex;flex-direction:column;gap:2px;}
+.hist-when{font-size:0.7rem;color:var(--muted);}
+.hist-q{font-size:0.85rem;}
+.hist-empty{color:var(--muted);font-style:italic;font-size:0.85rem;}
+</style></head><body>
+<div class="wrap">
+  <div class="nav">
+    <a href="index.html">Exec Speak</a><a href="strategy.html">Strategy Desk</a>
+    <a href="concept.html" class="active">Concept Explainer</a><a href="briefing.html">Briefing Note</a>
+    <a href="vendor.html">Vendor Prep</a><a href="glossary.html">Glossary</a><a href="inbox.html">Inbox Triage</a>
+  </div>
+  <h1>Concept Explainer</h1>
+  <p class="sub">Type any term or idea you keep running into — PPA, take-or-pay, JV structuring, SIP trunking. Plain-language breakdown, the business logic, and a flow diagram when it has a structure worth seeing.</p>
+  <input type="text" id="input" placeholder="e.g. take-or-pay clause in gas supply agreements">
+  <div class="row">
+    <button class="primary" id="go">Explain it</button>
+    <button id="clear">Clear</button>
+  </div>
+  <div id="result" class="result empty">Your explanation appears here.</div>
+  <div id="diagramWrap"></div>
+  <div class="histbox">
+    <h3>History <button id="clearHist">Clear</button></h3>
+    <div id="histList"></div>
+  </div>
+</div>
+<script src="shared.js"></script>
+<script>
+const SYSTEM = COMPANY_CONTEXT + `\n\nYou explain business, oil & gas, and telecom/VoIP concepts to Kingsley in plain language: a concrete analogy first, then the real mechanics, then why it matters given WellManned's actual business (drill bits, IPM, protective coatings, maritime infrastructure, Bluecharge, Jotun distribution) where relevant - do not force a WellManned connection onto concepts that don't have one. End with 2-3 follow-up questions worth asking before he brings this to Uwem. If the concept has a clear sequence or flow between parties, add a line starting exactly with "DIAGRAM:" followed by an arrow chain like "Gas Supplier -> IPP -> Grid -> End Customer". Omit the DIAGRAM line if there's no real flow. Do not invent numbers, percentages, or WellManned-specific facts not given to you.`;
+const PAGE = 'concept';
+const input=document.getElementById('input'),go=document.getElementById('go'),result=document.getElementById('result'),diagramWrap=document.getElementById('diagramWrap'),histList=document.getElementById('histList');
+
+function renderDiagram(line){
+  const chain=line.replace('DIAGRAM:','').trim().split('->').map(s=>s.trim()).filter(Boolean);
+  if(chain.length<2) return '';
+  const boxW=140,boxH=50,gap=40,svgW=chain.length*boxW+(chain.length-1)*gap+20,svgH=90;
+  let svg=`<svg viewBox="0 0 ${svgW} ${svgH}" width="100%" style="max-width:100%">`;
+  chain.forEach((n,i)=>{
+    const x=10+i*(boxW+gap);
+    svg+=`<rect x="${x}" y="20" width="${boxW}" height="${boxH}" rx="8" fill="none" stroke="var(--accent)" stroke-width="1.5"/>`;
+    svg+=`<text x="${x+boxW/2}" y="${20+boxH/2+5}" text-anchor="middle" font-size="12" fill="currentColor">${n}</text>`;
+    if(i<chain.length-1){
+      svg+=`<line x1="${x+boxW}" y1="45" x2="${x+boxW+gap}" y2="45" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrow)"/>`;
+    }
+  });
+  svg+=`<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="var(--accent)"/></marker></defs></svg>`;
+  return svg;
+}
+function refreshHistory(){
+  renderHistory(PAGE, histList, (item)=>{
+    input.value = item.q;
+    result.classList.remove('empty');
+    renderMarkdown(result, item.a);
+    diagramWrap.innerHTML='';
+  });
+}
+async function run(){
+  const text=input.value.trim(); if(!text) return;
+  go.disabled=true; result.classList.remove('empty'); result.textContent="Working..."; diagramWrap.innerHTML='';
+  try{
+    const resp=await fetch(GROQ_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+GROQ_API_KEY},
+      body:JSON.stringify({model:GROQ_MODEL,messages:[{role:"system",content:SYSTEM},{role:"user",content:text}]})});
+    if(!resp.ok) throw new Error("request failed: "+resp.status);
+    const data=await resp.json();
+    let out=data?.choices?.[0]?.message?.content?.trim()||"No response came back. Try again.";
+    const lines=out.split('\n'); const diagramLines=lines.filter(l=>l.trim().startsWith('DIAGRAM:'));
+    out=lines.filter(l=>!l.trim().startsWith('DIAGRAM:')).join('\n').trim();
+    renderMarkdown(result, out);
+    diagramWrap.innerHTML=diagramLines.map(l=>`<div class="diagram">${renderDiagram(l)}</div>`).join('');
+    saveHistory(PAGE, text, out);
+    refreshHistory();
+  }catch(e){ result.textContent="Something went wrong ("+e.message+"). Try again."; }
+  go.disabled=false;
+}
+go.addEventListener('click',run);
+document.getElementById('clear').addEventListener('click',()=>{input.value='';result.textContent='Your explanation appears here.';result.classList.add('empty');diagramWrap.innerHTML='';});
+document.getElementById('clearHist').addEventListener('click',()=>{clearHistory(PAGE);refreshHistory();});
+refreshHistory();
+</script></body></html>
